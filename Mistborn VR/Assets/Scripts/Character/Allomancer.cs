@@ -6,6 +6,8 @@ using UnityEngine.UI;
 
 public abstract class Allomancer : MonoBehaviour {
 
+    public GameObject test;
+
     #region Stats
 
     protected List<Metal> metals = new List<Metal>();
@@ -14,6 +16,7 @@ public abstract class Allomancer : MonoBehaviour {
 
     public float speed { get; protected set; } = 10.0f;
     public float strength { get; protected set; } = 5.0f;   //Maybe also determines jump-height?
+    public float mass = 60; //Pewter may increase this?
 
     #endregion
 
@@ -24,6 +27,8 @@ public abstract class Allomancer : MonoBehaviour {
 
     private InputDevice leftHand;
     private InputDevice rightHand;
+    public Transform t_leftHand;
+    public Transform t_rightHand;
 
     private bool isPressingLeftPrimary = false;
     private bool isPressingLeftSecondary = false;
@@ -65,13 +70,16 @@ public abstract class Allomancer : MonoBehaviour {
         if (GetButtonDown(buttonInputs.Left_Primary)) {   
             //Toggle burning of selected metal
             selectedMetal.isBurning = !selectedMetal.isBurning;
-            metalText.text = "Burning " + selectedMetal;
+            if(selectedMetal.isBurning)
+                metalText.text = "Burning " + selectedMetal;
         }
 
         if (GetButtonDown(buttonInputs.Left_Secondary)) {
             // Cycle through available metals
             CycleThroughMetals();
         }
+
+        /*FLARING A METAL*/
 
         if (leftHand.TryGetFeatureValue(CommonUsages.triggerButton, out bool leftTriggerPress) && leftTriggerPress) {
             if (selectedMetal.isBurning) {
@@ -85,9 +93,28 @@ public abstract class Allomancer : MonoBehaviour {
             metalText.text = "Burning " + selectedMetal;
         }
 
-        if(!selectedMetal.isBurning && !selectedMetal.isFlaring)
+        if (!selectedMetal.isBurning && !selectedMetal.isFlaring)
             metalText.text = "Burning stopped";
 
+
+        /*AIMING DIRECTION*/
+
+        if (rightHand.TryGetFeatureValue(CommonUsages.triggerButton, out bool rightTriggerPress) && rightTriggerPress) {
+            if (selectedMetal.isBurning) {
+                Vector3 pos = t_rightHand.position;
+
+                Vector3 impactEnd = pos + t_rightHand.forward * 10;
+                Collider[] cols = Physics.OverlapCapsule(pos, impactEnd, 1.0f);
+                List<GameObject> objectsAimedAt = new List<GameObject>();
+                foreach (Collider col in cols) {
+                    if (!objectsAimedAt.Contains(col.gameObject))
+                        if (col.gameObject.layer == 8)
+                            objectsAimedAt.Add(col.gameObject);
+                }
+
+                this.selectedMetal.Aim(objectsAimedAt);
+            }
+        }
     }
 
     private void CycleThroughMetals() {
@@ -98,7 +125,7 @@ public abstract class Allomancer : MonoBehaviour {
 
         selectedMetal = this.metals[metalIndex];
 
-        metalText.text = "Burning " + selectedMetal.ToString();
+        metalText.text = "Selected " + selectedMetal;
     }
 
     
