@@ -47,7 +47,7 @@ public class Iron : Metal
             Rigidbody objRigidb = g.GetComponent<Rigidbody>();
 
             Vector3 pullVector = g.transform.position - player.position;
-            float pullForce = 1.0f;
+            float pullForce = this.isFlaring ? 10.0f : 1.0f;
             pullVector *= pullForce;
             objRigidb.AddForce(-pullVector, ForceMode.Impulse);
         }

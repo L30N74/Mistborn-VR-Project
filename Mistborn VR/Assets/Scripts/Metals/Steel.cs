@@ -44,7 +44,7 @@ public class Steel : Metal {
             Rigidbody objRigidb = g.GetComponent<Rigidbody>();
 
             Vector3 pushVector = g.transform.position - player.position;
-            float pushForce = 1.0f;
+            float pushForce = this.isFlaring ? 10.0f : 1.0f;
             pushVector *= pushForce;
             objRigidb.AddForce(pushVector, ForceMode.Impulse);
         }
