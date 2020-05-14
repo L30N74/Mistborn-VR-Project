@@ -6,6 +6,8 @@ public abstract class Metal
     public bool isBurning { get; set; }
     public bool isFlaring { get; set; }
 
+    public float influence { get; protected set; }  //The metal's radius of influence
+
     public float reserves;
 
     public MetalType metalType { get; protected set; }
@@ -19,8 +21,8 @@ public abstract class Metal
     }
 
     public abstract void Burn();
-
-    public abstract void Aim(List<GameObject> objects);
+    public abstract void StopBurning();
+    public abstract void Aim(List<GameObject> objects, float pressAmount);
 
     public enum MetalType {
         _physical,

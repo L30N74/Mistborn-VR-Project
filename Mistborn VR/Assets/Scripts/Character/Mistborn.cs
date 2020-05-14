@@ -9,5 +9,6 @@ public class Mistborn : Allomancer
     {
         this.metals.Add(new Iron(this.transform));
         this.metals.Add(new Steel(this.transform));
+        //this.metals.Add(new Pewter(this.transform));
     }
 }

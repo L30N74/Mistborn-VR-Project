@@ -1,7 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.XR;
-using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.UI;
 
 public abstract class Allomancer : MonoBehaviour {
@@ -10,13 +9,17 @@ public abstract class Allomancer : MonoBehaviour {
 
     #region Stats
 
+    public float currentHealth;
+    public float maxHealth;
+
     protected List<Metal> metals = new List<Metal>();
     protected Metal selectedMetal;
     private int metalIndex = 0;
 
-    public float speed { get; protected set; } = 10.0f;
-    public float strength { get; protected set; } = 5.0f;   //Maybe also determines jump-height?
-    public float mass = 60; //Pewter may increase this?
+    public float speed { get; set; } = 10.0f;
+    public float strength { get; set; } = 5.0f;   //Maybe also determines jump-height?
+
+    public float regeneration {get; set; } = 3.0f;
 
     #endregion
 
@@ -34,12 +37,20 @@ public abstract class Allomancer : MonoBehaviour {
     private bool isPressingLeftSecondary = false;
     private bool isPressingRightPrimary = false;
     private bool isPressingRightSecondary = false;
+    private bool isPressingRightJoystick = false;
+    private bool isPressingLeftJoystick = false;
+    private bool isJumping = false;
 
     #endregion
 
     public Text metalText;
 
+    private Rigidbody rb;
+
+
     public void Start() {
+        this.rb = GetComponentInParent<Rigidbody>();
+
         selectedMetal = metals[metalIndex];
     }
 
@@ -54,33 +65,48 @@ public abstract class Allomancer : MonoBehaviour {
     }
 
     protected void Update() {
+        //Check if a both hands are connected and if not, try reconnecting them
         if (!leftHand.isValid || !rightHand.isValid) {
             GetDevices();
             return;
         }
-
+        
         CheckForButtonPress();
 
-        if (this.selectedMetal.isBurning)
-            this.selectedMetal.Burn();
+        //Go trhough all available metals and handle burning
+        foreach(Metal m in this.metals) {
+            if (m.isBurning)
+                m.Burn();
+        }
     }
 
     protected void CheckForButtonPress() {
 
+        //Toggle burning of selected metal
         if (GetButtonDown(buttonInputs.Left_Primary)) {   
-            //Toggle burning of selected metal
             selectedMetal.isBurning = !selectedMetal.isBurning;
             if(selectedMetal.isBurning)
                 metalText.text = "Burning " + selectedMetal;
         }
 
+        // Cycle through available metals
         if (GetButtonDown(buttonInputs.Left_Secondary)) {
-            // Cycle through available metals
             CycleThroughMetals();
         }
 
-        /*FLARING A METAL*/
+        if (GetButtonDown(buttonInputs.Right_Joystick)){
+            Jump();
+        }
 
+        /*FLARING A METAL*/
+        HandleMetalFlaring();
+
+        /*AIMING AN EXTERNAL METAL*/
+        HandleAiming();
+    }
+
+    private void HandleMetalFlaring() {
+        //Activate flaring of metal, when player holds the left Trigger
         if (leftHand.TryGetFeatureValue(CommonUsages.triggerButton, out bool leftTriggerPress) && leftTriggerPress) {
             if (selectedMetal.isBurning) {
                 selectedMetal.isFlaring = true;
@@ -88,22 +114,25 @@ public abstract class Allomancer : MonoBehaviour {
             }
         }
 
+        //Stop flaring upon Trigger-release
         if (selectedMetal.isFlaring && !leftTriggerPress) {
             selectedMetal.isFlaring = false;
             metalText.text = "Burning " + selectedMetal;
         }
 
-        if (!selectedMetal.isBurning && !selectedMetal.isFlaring)
+        //Player stopped burning the currently selected metal
+        if (!selectedMetal.isBurning && !selectedMetal.isFlaring) {
+            this.selectedMetal.StopBurning();
             metalText.text = "Burning stopped";
+        }
+    }
 
-
-        /*AIMING DIRECTION*/
-
-        if (rightHand.TryGetFeatureValue(CommonUsages.triggerButton, out bool rightTriggerPress) && rightTriggerPress) {
+    private void HandleAiming() {
+        if (rightHand.TryGetFeatureValue(CommonUsages.trigger, out float rightTriggerPressAmount) && rightTriggerPressAmount > 0.0f) {
             if (selectedMetal.isBurning) {
                 Vector3 pos = t_rightHand.position;
 
-                Vector3 impactEnd = pos + t_rightHand.forward * 10;
+                Vector3 impactEnd = pos + t_rightHand.forward * this.selectedMetal.influence;
                 Collider[] cols = Physics.OverlapCapsule(pos, impactEnd, 1.0f);
                 List<GameObject> objectsAimedAt = new List<GameObject>();
                 foreach (Collider col in cols) {
@@ -112,7 +141,7 @@ public abstract class Allomancer : MonoBehaviour {
                             objectsAimedAt.Add(col.gameObject);
                 }
 
-                this.selectedMetal.Aim(objectsAimedAt);
+                this.selectedMetal.Aim(objectsAimedAt, rightTriggerPressAmount);
             }
         }
     }
@@ -128,12 +157,13 @@ public abstract class Allomancer : MonoBehaviour {
         metalText.text = "Selected " + selectedMetal;
     }
 
-    
     private enum buttonInputs {
         Left_Primary,
         Left_Secondary,
         Right_Primary,
         Right_Secondary,
+        Right_Joystick,
+        Left_Joystick
     }
 
     private bool GetButtonDown(buttonInputs input) {
@@ -165,7 +195,6 @@ public abstract class Allomancer : MonoBehaviour {
             case buttonInputs.Right_Primary:
                 if (rightHand.TryGetFeatureValue(CommonUsages.primaryButton, out bool pressedRightPrimary)) {
                     if (!isPressingRightPrimary && pressedRightPrimary) {
-
                         value = true;
                         isPressingRightPrimary = true;
                     }
@@ -177,7 +206,6 @@ public abstract class Allomancer : MonoBehaviour {
             case buttonInputs.Right_Secondary:
                 if (rightHand.TryGetFeatureValue(CommonUsages.secondaryButton, out bool pressedRightSecondary)) {
                     if (!isPressingRightSecondary && pressedRightSecondary) {
-
                         value = true;
                         isPressingRightSecondary = true;
                     }
@@ -185,8 +213,40 @@ public abstract class Allomancer : MonoBehaviour {
                         isPressingRightSecondary = false;
                 }
                 break;
+            case buttonInputs.Right_Joystick:
+                if (rightHand.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out bool pressedRightJoystick)) {
+                    if (!isPressingRightJoystick && pressedRightJoystick) {
+                        value = true;
+                        isPressingRightJoystick = true;
+                    }
+                    else if (!pressedRightJoystick)
+                        isPressingRightJoystick = false;
+                }
+                break;
+            case buttonInputs.Left_Joystick:
+                if (rightHand.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out bool pressedLeftJoystick)) {
+                    if (!isPressingLeftJoystick && pressedLeftJoystick) {
+                        value = true;
+                        isPressingRightJoystick = true;
+                    }
+                    else if (!pressedLeftJoystick)
+                        isPressingRightJoystick = false;
+                }
+                break;
         }
 
         return value;
     } 
+
+    public void PushPlayer(Vector3 force){
+        this.rb.AddForce(force, ForceMode.Impulse);
+    }
+
+    private void Jump(){
+        Vector3 jumpVector = this.transform.up * this.strength * 1000;
+        isJumping = true;
+        this.metalText.text = "Jumping";
+
+        PushPlayer(jumpVector);
+    }
 }
