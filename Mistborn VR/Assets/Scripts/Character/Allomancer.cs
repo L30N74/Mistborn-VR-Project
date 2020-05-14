@@ -13,7 +13,6 @@ public abstract class Allomancer : MonoBehaviour {
     protected List<Metal> metals = new List<Metal>();
     protected Metal selectedMetal_Left;
     protected Metal selectedMetal_Right;
-    private int metalIndex = 0;
 
     public float speed { get; set; } = 10.0f;
     public float strength { get; set; } = 5.0f;   //Maybe also determines jump-height?
@@ -67,7 +66,8 @@ public abstract class Allomancer : MonoBehaviour {
     public void Start() {
         this.rb = GetComponentInParent<Rigidbody>();
 
-        selectedMetal_Left = metals[metalIndex];
+        selectedMetal_Left = metals[0];
+        selectedMetal_Right = metals[1];
     }
 
     protected void GetDevices() {
@@ -108,21 +108,29 @@ public abstract class Allomancer : MonoBehaviour {
 
     protected void CheckForButtonPress() {
 
-        //Toggle burning of selected metal
+        //Toggle burning of selected metal in left hand
         if (GetButtonDown(buttonInputs.Left_Primary)) {   
             selectedMetal_Left.isBurning = !selectedMetal_Left.isBurning;
             if(selectedMetal_Left.isBurning)
                 metalText.text = "Burning " + selectedMetal_Left;
         }
 
+        //Toggle burning of selected metal in right hand
+        if (GetButtonDown(buttonInputs.Right_Primary)) {
+            selectedMetal_Right.isBurning = !selectedMetal_Right.isBurning;
+            if (selectedMetal_Right.isBurning)
+                metalText.text = "Burning " + selectedMetal_Right;
+        }
+
         // Cycle through available metals
         if (leftHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingLeftSecondary) && pressingLeftSecondary) {
-            //CycleThroughMetals();
             if(!leftMetalWheelOpen)
                 OpenMetalSelectionWheel("Left");
             else {
                 // Move wheel when hand gets too far away
                 WheelFollow("Left");
+
+                MetalPreselect("Left");
             }
         }
         else if (!pressingLeftSecondary) {
@@ -132,12 +140,13 @@ public abstract class Allomancer : MonoBehaviour {
         }
 
         if (rightHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingRightSecondary) && pressingRightSecondary) {
-            //CycleThroughMetals();
-            if(!rightMetalWheelOpen)
+            if (!rightMetalWheelOpen)
                 OpenMetalSelectionWheel("Right");
             else {
                 // Move wheel when hand gets too far away
                 WheelFollow("Right");
+
+                MetalPreselect("Right");
             }
         }
         else if(!pressingRightSecondary) {
@@ -233,7 +242,7 @@ public abstract class Allomancer : MonoBehaviour {
             return;
 
         //Rotate wheel to look at player
-        wheel.transform.rotation = Quaternion.LookRotation(Camera.main.transform.position - wheel.transform.position, Vector3.up);
+        wheel.transform.rotation = Quaternion.LookRotation(wheel.transform.position - Camera.main.transform.position, Vector3.up);
 
         // Calculate distance between metalWheel and the player's hand
         float dist = Vector3.Distance(wheel.transform.position, hand_ref.position);
@@ -244,15 +253,22 @@ public abstract class Allomancer : MonoBehaviour {
         }
     }
 
-    private void CycleThroughMetals() {
-        if (this.metalIndex < this.metals.Count - 1)
-            this.metalIndex++;
-        else
-            this.metalIndex = 0;
+    private void MetalPreselect(string hand) {
+        GameObject wheel = hand.Equals("Left") ? leftMetalWheel : hand.Equals("Right") ? rightMetalWheel : null;
+        Transform hand_ref = hand.Equals("Left") ? t_leftHand : hand.Equals("Right") ? t_rightHand : null;
 
-        selectedMetal_Left = this.metals[metalIndex];
+        if (wheel == null || hand_ref == null)
+            return;
 
-        metalText.text = "Selected " + selectedMetal_Left;
+        //Fire Raycast towards wheel
+        Ray ray = new Ray(hand_ref.position, (hand_ref.position - wheel.transform.position));
+        if(Physics.Raycast(ray, out RaycastHit hit)) {
+            metalText.text = "Hit " + hit.transform.name;
+            
+        }
+        else {
+            metalText.text = "Nothing hit with raycast";
+        }
     }
 
     private enum buttonInputs {
