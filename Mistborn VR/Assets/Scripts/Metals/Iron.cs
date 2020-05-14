@@ -28,7 +28,7 @@ public class Iron : Metal
             }
         }
         
-        //Remove 
+        //Remove Objects that are too far away, from the list
         foreach(GameObject g in nearbySources) {
             if (!sphere.Contains(g.GetComponent<Collider>())) {
                 nearbySources.Remove(g);
@@ -41,6 +41,9 @@ public class Iron : Metal
         foreach (GameObject g in nearbySources) {
             g.GetComponent<MetallicObject>().showLine = false;
         }
+
+        //Empty the list
+        this.nearbySources.Clear();
     }
 
 

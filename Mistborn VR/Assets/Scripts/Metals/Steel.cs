@@ -40,11 +40,9 @@ public class Steel : Metal {
         foreach (GameObject g in nearbySources) {
             g.GetComponent<MetallicObject>().showLine = false;
         }
-    }
 
-    private Color RandomColor() {
-
-        return new Color(Random.Range(0f,1f), Random.Range(0f, 1f), Random.Range(0f, 1f));
+        //Empty the list
+        this.nearbySources.Clear();
     }
 
     public override void Aim(List<GameObject> objects, float amountPressed) {

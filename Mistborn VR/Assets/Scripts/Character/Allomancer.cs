@@ -4,16 +4,15 @@ using UnityEngine.XR;
 using UnityEngine.UI;
 
 public abstract class Allomancer : MonoBehaviour {
-
-    public GameObject test;
-
+    
     #region Stats
 
     public float currentHealth;
     public float maxHealth;
 
     protected List<Metal> metals = new List<Metal>();
-    protected Metal selectedMetal;
+    protected Metal selectedMetal_Left;
+    protected Metal selectedMetal_Right;
     private int metalIndex = 0;
 
     public float speed { get; set; } = 10.0f;
@@ -33,6 +32,15 @@ public abstract class Allomancer : MonoBehaviour {
     public Transform t_leftHand;
     public Transform t_rightHand;
 
+    //For checking of continuous presses (holding the button)
+    private bool pressingLeftPrimary = false;
+    private bool pressingLeftSecondary = false;
+    private bool pressingRightPrimary = false;
+    private bool pressingRightSecondary = false;
+    private bool pressingRightJoystick = false;
+    private bool pressingLeftJoystick = false;
+
+    //For short presses
     private bool isPressingLeftPrimary = false;
     private bool isPressingLeftSecondary = false;
     private bool isPressingRightPrimary = false;
@@ -43,6 +51,14 @@ public abstract class Allomancer : MonoBehaviour {
 
     #endregion
 
+    public GameObject metalWheelCanvasPrefab;
+
+    private GameObject leftMetalWheel;
+    private GameObject rightMetalWheel;
+
+    private bool leftMetalWheelOpen;
+    private bool rightMetalWheelOpen;
+
     public Text metalText;
 
     private Rigidbody rb;
@@ -51,7 +67,7 @@ public abstract class Allomancer : MonoBehaviour {
     public void Start() {
         this.rb = GetComponentInParent<Rigidbody>();
 
-        selectedMetal = metals[metalIndex];
+        selectedMetal_Left = metals[metalIndex];
     }
 
     protected void GetDevices() {
@@ -80,22 +96,54 @@ public abstract class Allomancer : MonoBehaviour {
         }
     }
 
+    protected void FixedUpdate() {
+        CheckForJump();
+    }
+
+    protected void CheckForJump() {
+        if (GetButtonDown(buttonInputs.Right_Joystick)) {
+            Jump();
+        }
+    }
+
     protected void CheckForButtonPress() {
 
         //Toggle burning of selected metal
         if (GetButtonDown(buttonInputs.Left_Primary)) {   
-            selectedMetal.isBurning = !selectedMetal.isBurning;
-            if(selectedMetal.isBurning)
-                metalText.text = "Burning " + selectedMetal;
+            selectedMetal_Left.isBurning = !selectedMetal_Left.isBurning;
+            if(selectedMetal_Left.isBurning)
+                metalText.text = "Burning " + selectedMetal_Left;
         }
 
         // Cycle through available metals
-        if (GetButtonDown(buttonInputs.Left_Secondary)) {
-            CycleThroughMetals();
+        if (leftHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingLeftSecondary) && pressingLeftSecondary) {
+            //CycleThroughMetals();
+            if(!leftMetalWheelOpen)
+                OpenMetalSelectionWheel("Left");
+            else {
+                // Move wheel when hand gets too far away
+                WheelFollow("Left");
+            }
+        }
+        else if (!pressingLeftSecondary) {
+            if (leftMetalWheelOpen) {
+                CloseMetalSelectionWheel("Left");
+            }
         }
 
-        if (GetButtonDown(buttonInputs.Right_Joystick)){
-            Jump();
+        if (rightHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingRightSecondary) && pressingRightSecondary) {
+            //CycleThroughMetals();
+            if(!rightMetalWheelOpen)
+                OpenMetalSelectionWheel("Right");
+            else {
+                // Move wheel when hand gets too far away
+                WheelFollow("Right");
+            }
+        }
+        else if(!pressingRightSecondary) {
+            if (rightMetalWheelOpen) {
+                CloseMetalSelectionWheel("Right");
+            }
         }
 
         /*FLARING A METAL*/
@@ -108,31 +156,31 @@ public abstract class Allomancer : MonoBehaviour {
     private void HandleMetalFlaring() {
         //Activate flaring of metal, when player holds the left Trigger
         if (leftHand.TryGetFeatureValue(CommonUsages.triggerButton, out bool leftTriggerPress) && leftTriggerPress) {
-            if (selectedMetal.isBurning) {
-                selectedMetal.isFlaring = true;
-                metalText.text = "Flaring " + selectedMetal;
+            if (selectedMetal_Left.isBurning) {
+                selectedMetal_Left.isFlaring = true;
+                metalText.text = "Flaring " + selectedMetal_Left;
             }
         }
 
         //Stop flaring upon Trigger-release
-        if (selectedMetal.isFlaring && !leftTriggerPress) {
-            selectedMetal.isFlaring = false;
-            metalText.text = "Burning " + selectedMetal;
+        if (selectedMetal_Left.isFlaring && !leftTriggerPress) {
+            selectedMetal_Left.isFlaring = false;
+            metalText.text = "Burning " + selectedMetal_Left;
         }
 
         //Player stopped burning the currently selected metal
-        if (!selectedMetal.isBurning && !selectedMetal.isFlaring) {
-            this.selectedMetal.StopBurning();
+        if (!selectedMetal_Left.isBurning && !selectedMetal_Left.isFlaring) {
+            this.selectedMetal_Left.StopBurning();
             metalText.text = "Burning stopped";
         }
     }
 
     private void HandleAiming() {
         if (rightHand.TryGetFeatureValue(CommonUsages.trigger, out float rightTriggerPressAmount) && rightTriggerPressAmount > 0.0f) {
-            if (selectedMetal.isBurning) {
+            if (selectedMetal_Left.isBurning) {
                 Vector3 pos = t_rightHand.position;
 
-                Vector3 impactEnd = pos + t_rightHand.forward * this.selectedMetal.influence;
+                Vector3 impactEnd = pos + t_rightHand.forward * this.selectedMetal_Left.influence;
                 Collider[] cols = Physics.OverlapCapsule(pos, impactEnd, 1.0f);
                 List<GameObject> objectsAimedAt = new List<GameObject>();
                 foreach (Collider col in cols) {
@@ -141,8 +189,58 @@ public abstract class Allomancer : MonoBehaviour {
                             objectsAimedAt.Add(col.gameObject);
                 }
 
-                this.selectedMetal.Aim(objectsAimedAt, rightTriggerPressAmount);
+                this.selectedMetal_Left.Aim(objectsAimedAt, rightTriggerPressAmount);
             }
+        }
+    }
+
+    private void OpenMetalSelectionWheel(string hand) {
+
+        if (hand.Equals("Left")) {
+            if (leftMetalWheel == null) {
+                leftMetalWheel = Instantiate(metalWheelCanvasPrefab, t_leftHand.position, Quaternion.identity);
+                leftMetalWheelOpen = true;
+            }
+        }
+        else if (hand.Equals("Right")) {
+            if (rightMetalWheel == null) {
+                rightMetalWheel = Instantiate(metalWheelCanvasPrefab, t_rightHand.position, Quaternion.identity);
+                rightMetalWheelOpen = true;
+            }
+        }
+    }
+
+    private void CloseMetalSelectionWheel(string hand) {
+        if (hand.Equals("Left")) {
+            if (leftMetalWheel != null) {
+                Destroy(leftMetalWheel, 0.5f);
+                leftMetalWheelOpen = false;
+            }
+        }
+        else if (hand.Equals("Right")) {
+            if (rightMetalWheel != null) {
+                Destroy(rightMetalWheel, 0.5f);
+                rightMetalWheelOpen = false;
+            }
+        }
+    }
+
+    private void WheelFollow(string hand) {
+        GameObject wheel = hand.Equals("Left") ? leftMetalWheel : hand.Equals("Right") ? rightMetalWheel : null;
+        Transform hand_ref = hand.Equals("Left") ? t_leftHand : hand.Equals("Right") ? t_rightHand : null;
+
+        if (wheel == null || hand_ref == null)
+            return;
+
+        //Rotate wheel to look at player
+        wheel.transform.rotation = Quaternion.LookRotation(Camera.main.transform.position - wheel.transform.position, Vector3.up);
+
+        // Calculate distance between metalWheel and the player's hand
+        float dist = Vector3.Distance(wheel.transform.position, hand_ref.position);
+
+        if(dist >= 0.2f) {
+            Vector3 old_wheelPos = wheel.transform.position;
+            wheel.transform.position = Vector3.Lerp(old_wheelPos, hand_ref.position, 30 * Time.deltaTime);
         }
     }
 
@@ -152,9 +250,9 @@ public abstract class Allomancer : MonoBehaviour {
         else
             this.metalIndex = 0;
 
-        selectedMetal = this.metals[metalIndex];
+        selectedMetal_Left = this.metals[metalIndex];
 
-        metalText.text = "Selected " + selectedMetal;
+        metalText.text = "Selected " + selectedMetal_Left;
     }
 
     private enum buttonInputs {
