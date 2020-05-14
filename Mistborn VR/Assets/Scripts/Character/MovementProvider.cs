@@ -77,7 +77,7 @@ public class MovementProvider : LocomotionProvider
 
     private void ApplyGravity() {
         Vector3 gravity = new Vector3(0, Physics.gravity.y * gravityMultiplier, 0);
-        gravity *= Time.deltaTime;
+        gravity = gravity * Time.deltaTime;
         charController.Move(gravity * Time.deltaTime);
     }
 }

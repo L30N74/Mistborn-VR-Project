@@ -15,6 +15,7 @@ public abstract class Metal
     protected float drainRate;
     protected float drainRate_flaring;
     protected Transform player;
+    protected Vector3 playerCOG;    // Center of gravity
 
     public Metal(Transform player) {
         this.player = player;

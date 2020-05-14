@@ -24,7 +24,8 @@ public class MetallicObject : MonoBehaviour
             this.lr.positionCount = 2;
 
             this.lr.SetPosition(0, this.transform.position);
-            this.lr.SetPosition(1, player.transform.position);
+            Vector3 targetPos = new Vector3(Camera.main.transform.position.x, Camera.main.transform.position.y/2, Camera.main.transform.position.z);
+            this.lr.SetPosition(1, targetPos);
         }
         else
             this.lr.enabled = false;

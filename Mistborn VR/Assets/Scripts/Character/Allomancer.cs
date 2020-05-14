@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine.XR;
 using UnityEngine.UI;
+using TMPro;
 
 public abstract class Allomancer : MonoBehaviour {
     
@@ -32,12 +33,12 @@ public abstract class Allomancer : MonoBehaviour {
     public Transform t_rightHand;
 
     //For checking of continuous presses (holding the button)
-    private bool pressingLeftPrimary = false;
+    //private bool pressingLeftPrimary = false;
     private bool pressingLeftSecondary = false;
-    private bool pressingRightPrimary = false;
+    //private bool pressingRightPrimary = false;
     private bool pressingRightSecondary = false;
-    private bool pressingRightJoystick = false;
-    private bool pressingLeftJoystick = false;
+    //private bool pressingRightJoystick = false;
+    //private bool pressingLeftJoystick = false;
 
     //For short presses
     private bool isPressingLeftPrimary = false;
@@ -55,6 +56,9 @@ public abstract class Allomancer : MonoBehaviour {
     private GameObject leftMetalWheel;
     private GameObject rightMetalWheel;
 
+    public Image leftHandMetalImage;
+    public Image rightHandMetalImage;
+
     private bool leftMetalWheelOpen;
     private bool rightMetalWheelOpen;
 
@@ -68,6 +72,11 @@ public abstract class Allomancer : MonoBehaviour {
 
         selectedMetal_Left = metals[0];
         selectedMetal_Right = metals[1];
+
+        Sprite[] metalImages = Resources.LoadAll<Sprite>("wheel_proto");
+
+        leftHandMetalImage.sprite = metalImages[0];
+        rightHandMetalImage.sprite = metalImages[1];
     }
 
     protected void GetDevices() {
@@ -146,6 +155,8 @@ public abstract class Allomancer : MonoBehaviour {
                 // Move wheel when hand gets too far away
                 WheelFollow("Right");
 
+                //Show player over which metal he is hovering
+                //TODO: Dont do it via code
                 MetalPreselect("Right");
             }
         }
@@ -185,11 +196,12 @@ public abstract class Allomancer : MonoBehaviour {
     }
 
     private void HandleAiming() {
+        // Right hand
         if (rightHand.TryGetFeatureValue(CommonUsages.trigger, out float rightTriggerPressAmount) && rightTriggerPressAmount > 0.0f) {
             if (selectedMetal_Left.isBurning) {
                 Vector3 pos = t_rightHand.position;
 
-                Vector3 impactEnd = pos + t_rightHand.forward * this.selectedMetal_Left.influence;
+                Vector3 impactEnd = pos + t_rightHand.forward * this.selectedMetal_Right.influence;
                 Collider[] cols = Physics.OverlapCapsule(pos, impactEnd, 1.0f);
                 List<GameObject> objectsAimedAt = new List<GameObject>();
                 foreach (Collider col in cols) {
@@ -198,7 +210,25 @@ public abstract class Allomancer : MonoBehaviour {
                             objectsAimedAt.Add(col.gameObject);
                 }
 
-                this.selectedMetal_Left.Aim(objectsAimedAt, rightTriggerPressAmount);
+                this.selectedMetal_Right.Aim(objectsAimedAt, rightTriggerPressAmount);
+            }
+        }
+
+        // Left hand
+        if (leftHand.TryGetFeatureValue(CommonUsages.trigger, out float leftTriggerPressAmount) && leftTriggerPressAmount > 0.0f) {
+            if (selectedMetal_Left.isBurning) {
+                Vector3 pos = t_leftHand.position;
+
+                Vector3 impactEnd = pos + t_leftHand.forward * this.selectedMetal_Left.influence;
+                Collider[] cols = Physics.OverlapCapsule(pos, impactEnd, 1.0f);
+                List<GameObject> objectsAimedAt = new List<GameObject>();
+                foreach (Collider col in cols) {
+                    if (!objectsAimedAt.Contains(col.gameObject))
+                        if (col.gameObject.layer == 8)
+                            objectsAimedAt.Add(col.gameObject);
+                }
+
+                this.selectedMetal_Left.Aim(objectsAimedAt, leftTriggerPressAmount);
             }
         }
     }
@@ -209,12 +239,17 @@ public abstract class Allomancer : MonoBehaviour {
             if (leftMetalWheel == null) {
                 leftMetalWheel = Instantiate(metalWheelCanvasPrefab, t_leftHand.position, Quaternion.identity);
                 leftMetalWheelOpen = true;
+
+                leftHandMetalImage.enabled = false;
+
             }
         }
         else if (hand.Equals("Right")) {
             if (rightMetalWheel == null) {
                 rightMetalWheel = Instantiate(metalWheelCanvasPrefab, t_rightHand.position, Quaternion.identity);
                 rightMetalWheelOpen = true;
+
+                rightHandMetalImage.enabled = false;
             }
         }
     }
@@ -224,12 +259,14 @@ public abstract class Allomancer : MonoBehaviour {
             if (leftMetalWheel != null) {
                 Destroy(leftMetalWheel, 0.5f);
                 leftMetalWheelOpen = false;
+                leftHandMetalImage.enabled = true;
             }
         }
         else if (hand.Equals("Right")) {
             if (rightMetalWheel != null) {
                 Destroy(rightMetalWheel, 0.5f);
                 rightMetalWheelOpen = false;
+                rightHandMetalImage.enabled = true;
             }
         }
     }

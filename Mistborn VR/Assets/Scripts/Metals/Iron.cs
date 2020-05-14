@@ -48,10 +48,12 @@ public class Iron : Metal
 
 
     public override void Aim(List<GameObject> objects, float amountPressed) {
+        this.playerCOG = new Vector3(player.position.x, player.position.y + player.GetComponentInParent<CharacterController>().height / 2, player.position.z);
+
         foreach (GameObject g in objects) {
             Rigidbody objRigidb = g.GetComponent<Rigidbody>();
 
-            Vector3 pullVector = -(g.transform.position - player.position);
+            Vector3 pullVector = -(g.transform.position - this.playerCOG);
 
             // Determine force with which to push the object and player
             //Get masses

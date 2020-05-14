@@ -28,6 +28,7 @@ public class Steel : Metal {
             }
         }
 
+        // Remove sources that are too far away
         foreach (GameObject g in nearbySources) {
             if (!sphere.Contains(g.GetComponent<Collider>())) {
                 nearbySources.Remove(g);
@@ -46,10 +47,20 @@ public class Steel : Metal {
     }
 
     public override void Aim(List<GameObject> objects, float amountPressed) {
-        foreach (GameObject g in objects) {
+        this.playerCOG = new Vector3(player.position.x, player.position.y + player.GetComponentInParent<CharacterController>().height / 2, player.position.z);
+
+
+
+
+
+
+
+
+
+      foreach (GameObject g in objects) {
             Rigidbody objRigidb = g.GetComponent<Rigidbody>();
 
-            Vector3 pushVector = g.transform.position - player.position;
+            Vector3 pushVector = g.transform.position - this.playerCOG;
 
             // Determine force with which to push object
             //Get player's mass
