@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 
 public class Steel : Metal {
+    public LayerMask metalLayer = LayerMask.GetMask("Metallic");
 
     private List<GameObject> nearbySources = new List<GameObject>();
 
@@ -18,38 +19,36 @@ public class Steel : Metal {
         float searchRadius = this.isFlaring ? influence * 2 : influence;
 
         //look for nearby sources
-        List<Collider> sphere = new List<Collider>(Physics.OverlapSphere(player.position, searchRadius));
+        List<Collider> sphere = new List<Collider>(Physics.OverlapSphere(player.position, searchRadius, metalLayer));
         foreach (Collider col in sphere) {
-            if (col.gameObject.layer == 8) {
-                if (!nearbySources.Contains(col.gameObject)) {
-                    this.nearbySources.Add(col.gameObject);
-                    col.gameObject.GetComponent<MetallicObject>().DrawAllomanticLine(player, true);
-                }
+            if (!nearbySources.Contains(col.gameObject)) {
+                this.nearbySources.Add(col.gameObject);
+                col.gameObject.GetComponent<MetallicObject>().DrawAllomanticLine(true);
             }
         }
 
         foreach (GameObject g in nearbySources) {
             if (!sphere.Contains(g.GetComponent<Collider>())) {
                 nearbySources.Remove(g);
-                g.GetComponent<MetallicObject>().showLine = false;
+                g.GetComponent<MetallicObject>().DrawAllomanticLine(false);
             }
         }
     }
 
     public override void StopBurning() {
         foreach (GameObject g in nearbySources) {
-            g.GetComponent<MetallicObject>().showLine = false;
+            g.GetComponent<MetallicObject>().DrawAllomanticLine(false);
         }
 
         //Empty the list
         this.nearbySources.Clear();
     }
 
-    public override void Aim(List<GameObject> objects, float amountPressed) {
-        foreach (GameObject g in objects) {
+    public override void Aim(Collider[] objects, float amountPressed, Transform hand) {
+        foreach (Collider g in objects) {
             Rigidbody objRigidb = g.GetComponent<Rigidbody>();
 
-            Vector3 pushVector = g.transform.position - player.position;
+            Vector3 pushVector = g.transform.position - hand.position;
 
             // Determine force with which to push object
             //Get player's mass

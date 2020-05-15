@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.XR;
+using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.UI;
 
 public abstract class Allomancer : MonoBehaviour {
@@ -31,13 +32,19 @@ public abstract class Allomancer : MonoBehaviour {
     public Transform t_leftHand;
     public Transform t_rightHand;
 
+    private XRRayInteractor left_rayInteractor;
+    private XRRayInteractor right_rayInteractor;
+
+    [SerializeField]
+    private LayerMask metalLayer;
+
     //For checking of continuous presses (holding the button)
-    private bool pressingLeftPrimary = false;
+    //private bool pressingLeftPrimary = false;
     private bool pressingLeftSecondary = false;
-    private bool pressingRightPrimary = false;
+    //private bool pressingRightPrimary = false;
     private bool pressingRightSecondary = false;
-    private bool pressingRightJoystick = false;
-    private bool pressingLeftJoystick = false;
+    //private bool pressingRightJoystick = false;
+    //private bool pressingLeftJoystick = false;
 
     //For short presses
     private bool isPressingLeftPrimary = false;
@@ -55,6 +62,11 @@ public abstract class Allomancer : MonoBehaviour {
     private GameObject leftMetalWheel;
     private GameObject rightMetalWheel;
 
+    [SerializeField]
+    private Image leftMetalImage;
+    [SerializeField]
+    private Image rightMetalImage;
+
     private bool leftMetalWheelOpen;
     private bool rightMetalWheelOpen;
 
@@ -62,9 +74,16 @@ public abstract class Allomancer : MonoBehaviour {
 
     private Rigidbody rb;
 
+    private Sprite[] metalImages;
+
 
     public void Start() {
         this.rb = GetComponentInParent<Rigidbody>();
+
+        this.metalImages = Resources.LoadAll<Sprite>("wheel_proto");
+
+        leftMetalImage.sprite = metalImages[0];
+        rightMetalImage.sprite = metalImages[1];
 
         selectedMetal_Left = metals[0];
         selectedMetal_Right = metals[1];
@@ -73,6 +92,9 @@ public abstract class Allomancer : MonoBehaviour {
     protected void GetDevices() {
         leftHand = InputDevices.GetDeviceAtXRNode(n_left);
         rightHand = InputDevices.GetDeviceAtXRNode(n_right);
+
+        this.left_rayInteractor = t_leftHand.GetComponent<XRRayInteractor>();
+        this.right_rayInteractor = t_rightHand.GetComponent<XRRayInteractor>();
     }
 
     protected void OnEnable() {
@@ -89,8 +111,8 @@ public abstract class Allomancer : MonoBehaviour {
         
         CheckForButtonPress();
 
-        //Go trhough all available metals and handle burning
-        foreach(Metal m in this.metals) {
+        //Go through all available metals and handle burning
+        foreach (Metal m in this.metals) {
             if (m.isBurning)
                 m.Burn();
         }
@@ -100,66 +122,36 @@ public abstract class Allomancer : MonoBehaviour {
         CheckForJump();
     }
 
-    protected void CheckForJump() {
-        if (GetButtonDown(buttonInputs.Right_Joystick)) {
-            Jump();
-        }
+    protected void CheckForButtonPress() {
+        HandleMetalToggle();
+
+        HandleMetalSwitching();
+
+        //HandleMetalFlaring();
+
+        HandleAiming();
     }
 
-    protected void CheckForButtonPress() {
-
+    private void HandleMetalToggle() {
         //Toggle burning of selected metal in left hand
-        if (GetButtonDown(buttonInputs.Left_Primary)) {   
+        if (GetButtonDown(buttonInputs.Left_Primary)) {
             selectedMetal_Left.isBurning = !selectedMetal_Left.isBurning;
-            if(selectedMetal_Left.isBurning)
-                metalText.text = "Burning " + selectedMetal_Left;
         }
 
         //Toggle burning of selected metal in right hand
         if (GetButtonDown(buttonInputs.Right_Primary)) {
             selectedMetal_Right.isBurning = !selectedMetal_Right.isBurning;
-            if (selectedMetal_Right.isBurning)
-                metalText.text = "Burning " + selectedMetal_Right;
         }
 
-        // Cycle through available metals
-        if (leftHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingLeftSecondary) && pressingLeftSecondary) {
-            if(!leftMetalWheelOpen)
-                OpenMetalSelectionWheel("Left");
-            else {
-                // Move wheel when hand gets too far away
-                WheelFollow("Left");
-
-                MetalPreselect("Left");
-            }
-        }
-        else if (!pressingLeftSecondary) {
-            if (leftMetalWheelOpen) {
-                CloseMetalSelectionWheel("Left");
-            }
+        //Player stopped burning the currently selected metal (left hand)
+        if (!selectedMetal_Left.isBurning) {
+            this.selectedMetal_Left.StopBurning();
         }
 
-        if (rightHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingRightSecondary) && pressingRightSecondary) {
-            if (!rightMetalWheelOpen)
-                OpenMetalSelectionWheel("Right");
-            else {
-                // Move wheel when hand gets too far away
-                WheelFollow("Right");
-
-                MetalPreselect("Right");
-            }
+        //Player stopped burning the currently selected metal (right hand)
+        if (!selectedMetal_Right.isBurning) {
+            this.selectedMetal_Right.StopBurning();
         }
-        else if(!pressingRightSecondary) {
-            if (rightMetalWheelOpen) {
-                CloseMetalSelectionWheel("Right");
-            }
-        }
-
-        /*FLARING A METAL*/
-        HandleMetalFlaring();
-
-        /*AIMING AN EXTERNAL METAL*/
-        HandleAiming();
     }
 
     private void HandleMetalFlaring() {
@@ -176,61 +168,101 @@ public abstract class Allomancer : MonoBehaviour {
             selectedMetal_Left.isFlaring = false;
             metalText.text = "Burning " + selectedMetal_Left;
         }
-
-        //Player stopped burning the currently selected metal
-        if (!selectedMetal_Left.isBurning && !selectedMetal_Left.isFlaring) {
-            this.selectedMetal_Left.StopBurning();
-            metalText.text = "Burning stopped";
-        }
     }
+
+    private void HandleMetalSwitching() {
+
+        // Cycle through available metals
+        if (leftHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingLeftSecondary) && pressingLeftSecondary) {
+            if (!leftMetalWheelOpen)
+                OpenMetalSelectionWheel("Left");
+            else {
+                // Move wheel when hand gets too far away
+                WheelFollow("Left");
+            }
+        }
+        else if (!pressingLeftSecondary) {
+            if (leftMetalWheelOpen) {
+                CloseMetalSelectionWheel("Left");
+            }
+        }
+
+        if (rightHand.TryGetFeatureValue(CommonUsages.secondaryButton, out pressingRightSecondary) && pressingRightSecondary) {
+            if (!rightMetalWheelOpen)
+                OpenMetalSelectionWheel("Right");
+            else {
+                // Move wheel when hand gets too far away
+                WheelFollow("Right");
+            }
+        }
+        else if (!pressingRightSecondary) {
+            if (rightMetalWheelOpen) {
+                CloseMetalSelectionWheel("Right");
+            }
+        }
+    }  
 
     private void HandleAiming() {
         if (rightHand.TryGetFeatureValue(CommonUsages.trigger, out float rightTriggerPressAmount) && rightTriggerPressAmount > 0.0f) {
-            if (selectedMetal_Left.isBurning) {
+            if (selectedMetal_Right.isBurning && !rightMetalWheelOpen) {
                 Vector3 pos = t_rightHand.position;
+                float aimColliderRadius = 1.0f;
 
-                Vector3 impactEnd = pos + t_rightHand.forward * this.selectedMetal_Left.influence;
-                Collider[] cols = Physics.OverlapCapsule(pos, impactEnd, 1.0f);
-                List<GameObject> objectsAimedAt = new List<GameObject>();
-                foreach (Collider col in cols) {
-                    if (!objectsAimedAt.Contains(col.gameObject))
-                        if (col.gameObject.layer == 8)
-                            objectsAimedAt.Add(col.gameObject);
-                }
+                Vector3 impactEnd = pos + t_rightHand.forward * this.selectedMetal_Right.influence;
+                Collider[] collisions = Physics.OverlapCapsule(pos, impactEnd, aimColliderRadius, this.metalLayer);
+                
+                this.selectedMetal_Right.Aim(collisions, rightTriggerPressAmount, t_rightHand);
+            }
+        }
 
-                this.selectedMetal_Left.Aim(objectsAimedAt, rightTriggerPressAmount);
+        if (leftHand.TryGetFeatureValue(CommonUsages.trigger, out float leftTriggerPressAmount) && leftTriggerPressAmount > 0.0f) {
+            if (selectedMetal_Left.isBurning && !leftMetalWheelOpen) {
+                Vector3 pos = t_leftHand.position;
+                float aimColliderRadius = 1.0f;
+
+                Vector3 impactEnd = pos + t_leftHand.forward * this.selectedMetal_Left.influence;
+                Collider[] collisions = Physics.OverlapCapsule(pos, impactEnd, aimColliderRadius, this.metalLayer);
+                
+                this.selectedMetal_Left.Aim(collisions, leftTriggerPressAmount, t_leftHand);
             }
         }
     }
 
     private void OpenMetalSelectionWheel(string hand) {
-
         if (hand.Equals("Left")) {
-            if (leftMetalWheel == null) {
-                leftMetalWheel = Instantiate(metalWheelCanvasPrefab, t_leftHand.position, Quaternion.identity);
-                leftMetalWheelOpen = true;
-            }
+            if (leftMetalWheel != null) return;
+            
+            leftMetalWheel = Instantiate(metalWheelCanvasPrefab, t_leftHand.position, Quaternion.identity);
+            leftMetalWheel.GetComponent<Canvas>().worldCamera = Camera.main;
+            leftMetalWheel.GetComponent<UIInteract>().SetHand(this, "Left");
+            left_rayInteractor.enabled = true;
+            leftMetalWheelOpen = true;
         }
         else if (hand.Equals("Right")) {
-            if (rightMetalWheel == null) {
-                rightMetalWheel = Instantiate(metalWheelCanvasPrefab, t_rightHand.position, Quaternion.identity);
-                rightMetalWheelOpen = true;
-            }
+            if (rightMetalWheel != null) return;
+
+            rightMetalWheel = Instantiate(metalWheelCanvasPrefab, t_rightHand.position, Quaternion.identity);
+            rightMetalWheel.GetComponent<Canvas>().worldCamera = Camera.main;
+            rightMetalWheel.GetComponent<UIInteract>().SetHand(this, "Right");
+            right_rayInteractor.enabled = true;
+            rightMetalWheelOpen = true;
         }
     }
 
     private void CloseMetalSelectionWheel(string hand) {
         if (hand.Equals("Left")) {
-            if (leftMetalWheel != null) {
-                Destroy(leftMetalWheel, 0.5f);
-                leftMetalWheelOpen = false;
-            }
+            if (leftMetalWheel == null) return;
+
+            Destroy(leftMetalWheel, 0.5f);
+            left_rayInteractor.enabled = false;
+            leftMetalWheelOpen = false;
         }
         else if (hand.Equals("Right")) {
-            if (rightMetalWheel != null) {
-                Destroy(rightMetalWheel, 0.5f);
-                rightMetalWheelOpen = false;
-            }
+            if (rightMetalWheel == null) return;
+
+            Destroy(rightMetalWheel, 0.5f);
+            right_rayInteractor.enabled = false;
+            rightMetalWheelOpen = false;
         }
     }
 
@@ -241,33 +273,18 @@ public abstract class Allomancer : MonoBehaviour {
         if (wheel == null || hand_ref == null)
             return;
 
+        float moveThreshhold = 0.4f;
+        float moveSpeed = 30f;
+
         //Rotate wheel to look at player
         wheel.transform.rotation = Quaternion.LookRotation(wheel.transform.position - Camera.main.transform.position, Vector3.up);
 
         // Calculate distance between metalWheel and the player's hand
         float dist = Vector3.Distance(wheel.transform.position, hand_ref.position);
 
-        if(dist >= 0.2f) {
-            Vector3 old_wheelPos = wheel.transform.position;
-            wheel.transform.position = Vector3.Lerp(old_wheelPos, hand_ref.position, 30 * Time.deltaTime);
-        }
-    }
-
-    private void MetalPreselect(string hand) {
-        GameObject wheel = hand.Equals("Left") ? leftMetalWheel : hand.Equals("Right") ? rightMetalWheel : null;
-        Transform hand_ref = hand.Equals("Left") ? t_leftHand : hand.Equals("Right") ? t_rightHand : null;
-
-        if (wheel == null || hand_ref == null)
-            return;
-
-        //Fire Raycast towards wheel
-        Ray ray = new Ray(hand_ref.position, (hand_ref.position - wheel.transform.position));
-        if(Physics.Raycast(ray, out RaycastHit hit)) {
-            metalText.text = "Hit " + hit.transform.name;
-            
-        }
-        else {
-            metalText.text = "Nothing hit with raycast";
+        if(dist > moveThreshhold) {
+            Vector3 wheelPos = wheel.transform.position;
+            wheel.transform.position = Vector3.Lerp(wheelPos, hand_ref.position, moveSpeed * Time.deltaTime);
         }
     }
 
@@ -356,11 +373,54 @@ public abstract class Allomancer : MonoBehaviour {
         this.rb.AddForce(force, ForceMode.Impulse);
     }
 
+    protected void CheckForJump() {
+        if (GetButtonDown(buttonInputs.Right_Joystick)) {
+            Jump();
+        }
+    }
+
     private void Jump(){
         Vector3 jumpVector = this.transform.up * this.strength * 1000;
         isJumping = true;
         this.metalText.text = "Jumping";
 
         PushPlayer(jumpVector);
+    }
+
+    public void SetMetalBasedOnName(string metalName, string hand) {
+        Metal chosenMetal = getMetalFromName(metalName);
+        Sprite chosenMetal_image = getMetalImageFromName(metalName);
+
+        if (chosenMetal == null) return;
+        if (chosenMetal_image == null) return;
+
+        if (hand.Equals("Left")) {
+            selectedMetal_Left = chosenMetal;
+            leftMetalImage.sprite = chosenMetal_image;
+        }
+        else {
+            selectedMetal_Right = chosenMetal;
+            rightMetalImage.sprite = chosenMetal_image;
+        }
+    }
+
+    private Metal getMetalFromName(string metalName) {
+        foreach(Metal metal in this.metals) {
+            if (metal.GetType().ToString().Equals(metalName)) {
+                return metal;
+            }
+        }
+
+        return null;
+    }
+
+    private Sprite getMetalImageFromName(string metalName) {
+        foreach(Sprite metalImage in this.metalImages) {
+            string[] nameParts = metalImage.name.Split('_');
+            if (nameParts[2].Equals(metalName))
+                return metalImage;
+        }
+        
+        return null;
     }
 }

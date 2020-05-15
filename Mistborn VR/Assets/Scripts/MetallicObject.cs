@@ -6,32 +6,32 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class MetallicObject : MonoBehaviour
 {
-    public bool showLine { get; set; }
+    private bool showLine;
 
-    LineRenderer lr;
-    private Transform player;
+    LineRenderer lineRenderer;
 
     // Start is called before the first frame update
     void Start(){
-        this.lr = GetComponent<LineRenderer>();
-        this.lr.startWidth = 0.2f;
-        this.lr.endWidth = 0.1f;
+        this.lineRenderer = GetComponent<LineRenderer>();
+        this.lineRenderer.startWidth = 0.2f;
+        this.lineRenderer.endWidth = 0.1f;
     }
 
     public void Update() {
         if (showLine) {
-            this.lr.enabled = true;
-            this.lr.positionCount = 2;
+            this.lineRenderer.enabled = true;
+            this.lineRenderer.positionCount = 2;
 
-            this.lr.SetPosition(0, this.transform.position);
-            this.lr.SetPosition(1, player.transform.position);
+
+            this.lineRenderer.SetPosition(0, this.transform.position);
+            Vector3 targetPos = new Vector3(Camera.main.transform.position.x, Camera.main.transform.position.y / 2, Camera.main.transform.position.z);
+            this.lineRenderer.SetPosition(1, targetPos);
         }
         else
-            this.lr.enabled = false;
+            this.lineRenderer.enabled = false;
     }
 
-    public void DrawAllomanticLine(Transform player, bool value) {
-        this.player = player;
+    public void DrawAllomanticLine(bool value) {
         this.showLine = value;
     }
 }

@@ -22,7 +22,7 @@ public abstract class Metal
 
     public abstract void Burn();
     public abstract void StopBurning();
-    public abstract void Aim(List<GameObject> objects, float pressAmount);
+    public abstract void Aim(Collider[] objects, float pressAmount, Transform hand);
 
     public enum MetalType {
         _physical,

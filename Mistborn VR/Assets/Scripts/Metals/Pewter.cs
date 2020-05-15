@@ -16,25 +16,20 @@ public class Pewter : Metal
     }
 
     public override void Burn(){
-        if(isBurning){
-            this.playerScript.speed *= isFlaring ? flareFactor : burnFactor;
-            this.playerScript.strength *= isFlaring ? flareFactor : burnFactor;
-            // this.player.GetComponentInParent<Rigidbody>().mass *= isFlaring ? 2f : 1.3f;
-            this.playerScript.regeneration *= isFlaring ? flareFactor : burnFactor;
-        }
-        else {
-            this.playerScript.speed /= isFlaring ? flareFactor : burnFactor;
-            this.playerScript.strength /= isFlaring ? flareFactor : burnFactor;
-            // this.player.GetComponentInParent<Rigidbody>().mass /= isFlaring ? 2f : 1.3f;
-            this.playerScript.regeneration /= isFlaring ? flareFactor : burnFactor;
-        }
+        this.playerScript.speed *= isFlaring ? flareFactor : burnFactor;
+        this.playerScript.strength *= isFlaring ? flareFactor : burnFactor;
+        // this.player.GetComponentInParent<Rigidbody>().mass *= isFlaring ? 2f : 1.3f;
+        this.playerScript.regeneration *= isFlaring ? flareFactor : burnFactor;
     }
 
     public override void StopBurning() {
-        //Nothing to see here (yet??)
+        this.playerScript.speed /= isFlaring ? flareFactor : burnFactor;
+        this.playerScript.strength /= isFlaring ? flareFactor : burnFactor;
+        // this.player.GetComponentInParent<Rigidbody>().mass /= isFlaring ? 2f : 1.3f;
+        this.playerScript.regeneration /= isFlaring ? flareFactor : burnFactor;
     }
 
-    public override void Aim(List<GameObject> objects, float amountPressed){
+    public override void Aim(Collider[] objects, float amountPressed, Transform hand){
         //Ahm, Pewter doesn't need aiming... 
     }
 }
